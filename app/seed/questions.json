@@ -1,0 +1,29 @@
+{
+  "_comment": "Sample question pack: 24 made-up general-knowledge questions, 3 rounds of 8, using all five question types. Replace it with your own (see README, 'Writing your own questions'). Images live in app/static/questions/. On number_wheel, `span` is how far off a guess can be before it scores zero, and min/max set the dial's range.",
+  "questions": [
+    {"id": "r1q1", "type": "multiple_choice", "prompt": "Which of these animals is a marsupial?", "options": ["Wombat", "Armadillo", "Pangolin", "Lemur"], "correct": "Wombat"},
+    {"id": "r1q2", "type": "true_false", "prompt": "An octopus has three hearts.", "correct": true},
+    {"id": "r1q3", "type": "number_wheel", "prompt": "How many keys are on a standard piano?", "correct": 88, "span": 40, "min": 0, "max": 120},
+    {"id": "r1q4", "type": "multiple_choice", "prompt": "Which country's flag is this?", "image": "flag-1.png", "options": ["Japan", "Bangladesh", "Palau", "South Korea"], "correct": "Japan"},
+    {"id": "r1q5", "type": "free_text", "prompt": "What is the largest ocean on Earth?", "correct": ["pacific", "pacific ocean", "the pacific"]},
+    {"id": "r1q6", "type": "multiple_choice", "prompt": "What is the hardest natural material?", "options": ["Diamond", "Quartz", "Granite", "Obsidian"], "correct": "Diamond"},
+    {"id": "r1q7", "type": "true_false", "prompt": "The Great Wall of China is visible to the naked eye from the Moon.", "correct": false},
+    {"id": "r1q8", "type": "pick_player", "prompt": "Who is most likely to sing the loudest at karaoke?"},
+    {"id": "r2q1", "type": "multiple_choice", "prompt": "Which instrument usually has 47 strings and seven pedals?", "options": ["Harp", "Cello", "Sitar", "Banjo"], "correct": "Harp"},
+    {"id": "r2q2", "type": "number_wheel", "prompt": "In what year did people first walk on the Moon?", "correct": 1969, "span": 30, "min": 1900, "max": 2020},
+    {"id": "r2q3", "type": "true_false", "prompt": "Botanically speaking, a banana is a berry.", "correct": true},
+    {"id": "r2q4", "type": "multiple_choice", "prompt": "Which country's flag is this?", "image": "flag-2.png", "options": ["Italy", "Ireland", "Mexico", "Hungary"], "correct": "Italy"},
+    {"id": "r2q5", "type": "multiple_choice", "prompt": "How many sides does a hexagon have?", "options": ["5", "6", "7", "8"], "correct": "6"},
+    {"id": "r2q6", "type": "free_text", "prompt": "What gas do plants take in from the air to make food?", "correct": ["carbon dioxide", "co2"]},
+    {"id": "r2q7", "type": "number_wheel", "prompt": "How many bones are in an adult human body?", "correct": 206, "span": 60, "min": 100, "max": 300},
+    {"id": "r2q8", "type": "pick_player", "prompt": "Who is most likely to be late to their own party?"},
+    {"id": "r3q1", "type": "multiple_choice", "prompt": "Which language has the most native speakers?", "options": ["Mandarin Chinese", "Spanish", "English", "Hindi"], "correct": "Mandarin Chinese"},
+    {"id": "r3q2", "type": "true_false", "prompt": "A group of crows is called a murder.", "correct": true},
+    {"id": "r3q3", "type": "multiple_choice", "prompt": "Which country's flag is this?", "image": "flag-3.png", "options": ["Germany", "Belgium", "Uganda", "Austria"], "correct": "Germany"},
+    {"id": "r3q4", "type": "number_wheel", "prompt": "At sea level, water boils at how many degrees Fahrenheit?", "correct": 212, "span": 60, "min": 100, "max": 300},
+    {"id": "r3q5", "type": "multiple_choice", "prompt": "Who painted the Mona Lisa?", "options": ["Leonardo da Vinci", "Michelangelo", "Raphael", "Botticelli"], "correct": "Leonardo da Vinci"},
+    {"id": "r3q6", "type": "free_text", "prompt": "What is the capital city of Canada?", "correct": ["ottawa"]},
+    {"id": "r3q7", "type": "multiple_choice", "prompt": "What is the smallest prime number?", "options": ["1", "2", "3", "5"], "correct": "2"},
+    {"id": "r3q8", "type": "pick_player", "prompt": "Who is most likely to win this game?"}
+  ]
+}

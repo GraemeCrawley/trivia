@@ -1,0 +1,30 @@
+# Trivia: one container, one worker. See README.md for setup.
+services:
+  trivia:
+    build: .
+    container_name: trivia
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Where photos, the crash-recovery snapshot and the organizer login
+      # secret live. Backed by the named volume below.
+      BARGAMES_SELFIE_DIR: /data
+      BARGAMES_STATE_FILE: /data/game-state.json
+    ports:
+      # Players' phones must reach this port, so by default it listens on
+      # every network interface of this computer. See README "Who can reach it".
+      - "${TRIVIA_BIND:-0.0.0.0}:${TRIVIA_PORT:-8000}:8000"
+    volumes:
+      - trivia-data:/data
+      # Your questions, images and branding, read straight from this folder:
+      # edit them, then `docker compose restart`. No rebuild needed.
+      - ./app/seed:/app/seed:ro
+      - ./app/static/questions:/app/static/questions:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz', timeout=5)"]
+      interval: 15s
+      timeout: 6s
+      retries: 5
+
+volumes:
+  trivia-data:

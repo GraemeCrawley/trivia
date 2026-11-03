@@ -1,0 +1,128 @@
+{% set depth = request.url.path.strip('/').count('/') %}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<base href="{{ '../' * depth if depth else './' }}">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#071310">
+<title>Organizer — {{ b.title }}</title>
+<link rel="stylesheet" href="static/style.css?v={{ v }}">
+</head>
+<body data-theme="{{ b.theme }}">
+<section id="admin-login">
+  <h1 class="logo">Organizer</h1>
+  <p class="sub">You run the room from here.</p>
+  <label for="admin-password">Password</label>
+  <input id="admin-password" type="password" placeholder="Password"
+         autocomplete="current-password" aria-describedby="admin-error">
+  <p></p>
+  <button id="btn-login" class="big">Sign in</button>
+  <p id="admin-error" class="error" role="alert" hidden></p>
+</section>
+
+<header class="bar" id="admin-bar" hidden>
+  {% if b.badge %}<span class="badge">{{ b.badge }}</span>{% endif %}
+  <span id="you-name">{{ b.title }}</span>
+</header>
+
+<section id="admin-panel" hidden>
+  <div class="cfg" id="cfg-block">
+    <label for="cfg-timer">Seconds per question
+      <input id="cfg-timer" type="number" value="15" min="5" max="60"></label>
+    <label for="cfg-per-round">Questions per round
+      <input id="cfg-per-round" type="number" value="8" min="1" max="24"></label>
+    <label for="cfg-reveal">Seconds on the answer
+      <input id="cfg-reveal" type="number" value="5" min="1" max="20"></label>
+    <button id="btn-create" class="big ghost">Start a new game</button>
+  </div>
+
+  <div class="pinbox">
+    <div id="pin-display" class="pin-big" aria-label="Game PIN">----</div>
+    <a id="join-link" class="joinlink" href="#"></a>
+  </div>
+
+  <p class="admin-status">
+    <span id="admin-progress-label" class="pill"></span>
+    <span id="admin-phase" class="pill"></span>
+    <span id="admin-progress" class="pill live"></span>
+    <span id="flagged-count" class="pill call" hidden></span>
+    <span id="roster" class="roster"></span>
+  </p>
+
+  <p class="guide-link"><a href="guide">How to run the game &rarr;</a></p>
+
+  <section id="player-list-block" class="admin-section" hidden>
+    <h2>Who's playing</h2>
+    <div id="player-list" class="player-list"></div>
+  </section>
+
+  <div class="admin-section">
+    <section id="waiting-block">
+      <h2>Who we're waiting for</h2>
+      <div id="admin-bubbles" class="bubbles" aria-live="polite"></div>
+    </section>
+  </div>
+
+  <section id="flagged-queue" class="admin-section flagged" hidden>
+    <h2>Close calls</h2>
+    <p class="sub">These spellings were close enough to score, and already did.
+      Revoke any that shouldn't have.</p>
+    <div id="flagged-list"></div>
+  </section>
+
+  <div class="admin-section">
+    <h2>Current standings</h2>
+    <div id="admin-race" class="race"></div>
+  </div>
+
+  {# Reset has its own zone, NOT .admin-foot: that footer is hidden whenever
+     nobody has uploaded a photo, which would take Reset with it. Different
+     controls, different reasons to be on screen. #}
+
+  <p id="panel-error" class="error" role="alert" hidden></p>
+  <p id="panel-note" class="panel-note" role="status" hidden></p>
+
+  {# The controls are a sticky tray at the bottom. Once the game starts three
+     of them are live at once and they covered the room — so the whole tray
+     collapses to a single chevron bar. #}
+  <div class="controls" id="controls">
+    <button id="btn-tray" class="tray-toggle" type="button"
+            aria-expanded="true" aria-controls="control-buttons">
+      <span id="tray-label">Hide controls</span>
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path
+        fill="currentColor" d="M7.4 8.6 12 13.2l4.6-4.6L18 10l-6 6-6-6 1.4-1.4Z"/></svg>
+    </button>
+    <div id="control-buttons">
+    <button id="btn-start" class="big go">Start the game</button>
+    <button id="btn-end-question" class="big warn">End this question</button>
+    <button id="btn-next-question" class="big">Next question</button>
+    <button id="btn-pause" class="big warn" type="button">Pause</button>
+    <button id="btn-next-round" class="big go">Next round</button>
+    <section id="more-zone" class="more-zone" hidden>
+      <section id="reset-zone" class="reset-zone">
+      <button id="btn-reset" class="big danger" type="button">Reset game</button>
+      <div id="reset-confirm" class="reset-confirm" hidden role="alertdialog"
+           aria-labelledby="reset-confirm-title">
+        <p id="reset-confirm-title"><strong>Reset the game?</strong></p>
+        <p class="sub">Everyone stays in the room and keeps their place, but every
+          score goes back to zero and you start again from the first question.</p>
+        <button id="btn-reset-yes" class="big danger" type="button">Yes, reset it</button>
+        <button id="btn-reset-no" class="link-back" type="button">No, keep playing</button>
+      </div>
+      </section>
+
+      <div class="admin-foot" id="photo-foot">
+        <button id="btn-delete-selfies" class="big danger">Delete every photo now</button>
+      </div>
+    </section>
+    </div>
+  </div>
+</section>
+
+<script>window.BARGAMES_BUILD = "{{ build }}";</script>
+<script src="static/app.js?v={{ v }}"></script>
+<script src="static/admin.js?v={{ v }}"></script>
+<script>bargamesAdmin.init();</script>
+<footer><p class="version">{{ build }}</p></footer>
+</body>
+</html>

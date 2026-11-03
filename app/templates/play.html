@@ -1,0 +1,131 @@
+{% set depth = request.url.path.strip('/').count('/') %}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<base href="{{ '../' * depth if depth else './' }}">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#071310">
+<title>{{ b.title }}</title>
+<link rel="stylesheet" href="static/style.css?v={{ v }}">
+</head>
+<body data-theme="{{ b.theme }}">
+<header class="bar">{% if b.badge %}<span class="badge">{{ b.badge }}</span>{% endif %}
+  <span id="you-name"></span>
+  <span id="you-score" class="score" aria-label="Your score">0</span>
+</header>
+
+<section id="screen-gone" hidden>
+  <h2>You're not in this game</h2>
+  <p class="sub">Either the organizer started a new game, or you were removed
+    from this one. Join with the PIN on her phone — you will need to enter your
+    name again.</p>
+  <a id="btn-rejoin" class="big" href=".">Join the new game</a>
+</section>
+
+<section id="screen-lobby" hidden>
+  <h2>You're in.</h2>
+  <p class="sub">Waiting for the organizer to start.</p>
+  <button id="btn-edit-me" class="edit-me" type="button">
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor"
+      d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25ZM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83Z"/></svg>
+    Edit your name or photo
+  </button>
+
+  <div id="edit-sheet" class="edit-sheet" hidden role="dialog" aria-labelledby="edit-sheet-title">
+    <p id="edit-sheet-title"><strong>Your details</strong></p>
+    <label for="edit-name">Your name</label>
+    <input id="edit-name" maxlength="24" autocomplete="given-name">
+    <label for="edit-selfie">Photo <span class="opt-note">optional</span></label>
+    <div class="selfie-row">
+      <input id="edit-selfie" type="file" accept="image/*" capture="user">
+      <label class="selfie-drop" id="edit-selfie-drop" for="edit-selfie" aria-hidden="true">+</label>
+      <p class="sub">Add one, or take a new one if you don't like yours.</p>
+    </div>
+    <button id="btn-edit-save" class="big" type="button">Save</button>
+    <button id="btn-edit-cancel" class="link-back" type="button">Cancel</button>
+    <p id="edit-error" class="error" role="alert" hidden></p>
+  </div>
+
+  <div id="lobby-roster" class="bubbles"></div>
+</section>
+
+<section id="screen-question" hidden>
+  <div class="qhead">
+    <span id="progress-label" class="pill"></span>
+    <div class="timer" id="timer">
+      <svg id="timer-ring" viewBox="0 0 40 40" aria-hidden="true">
+        <circle class="ring-bg" cx="20" cy="20" r="17"></circle>
+        <circle class="ring-fg" cx="20" cy="20" r="17"></circle>
+      </svg>
+      <span id="timer-text" role="timer" aria-live="off">15</span>
+    </div>
+  </div>
+  <h2 id="q-prompt"></h2>
+  <img id="q-image" alt="" hidden>
+
+  <div id="q-options" class="grid2" hidden></div>
+
+  <div id="q-truefalse" hidden>
+    <button class="big tf" data-value="true">True</button>
+    <button class="big tf" data-value="false">False</button>
+  </div>
+
+  <div id="q-wheel" hidden>
+    <output id="wheel-value" for="wheel-input">0</output>
+    <div class="wheel-track">
+      <input type="range" id="wheel-input" min="0" max="100" value="50"
+             aria-label="Your guess">
+      <div class="wheel-bounds"><span id="wheel-min">0</span><span id="wheel-max">100</span></div>
+    </div>
+    <button class="big" id="wheel-submit">Lock it in</button>
+  </div>
+
+  <div id="q-text" hidden>
+    <input id="q-text-input" maxlength="48" autocomplete="off" autocapitalize="none"
+           placeholder="Your answer" aria-label="Your answer">
+    <button class="big" id="q-text-submit">Submit</button>
+  </div>
+
+  <div id="q-players" class="bubbles picker" hidden></div>
+  <p id="answer-error" class="error" role="alert" hidden></p>
+</section>
+
+<section id="screen-waiting" hidden>
+  <h2>Locked in.</h2>
+  <p class="sub"><span id="bubble-count"></span></p>
+  <p id="waiting-time" class="waiting-time" hidden></p>
+  <div id="bubbles" class="bubbles" aria-live="polite"></div>
+</section>
+
+<section id="screen-reveal" hidden>
+  <h2 id="reveal-correct"></h2>
+  <p id="reveal-points" class="points"></p>
+  <div id="reveal-countdown" class="reveal-countdown" hidden
+       role="timer" aria-live="off">
+    <div class="reveal-countdown-track"><div class="reveal-countdown-bar"></div></div>
+    <p class="reveal-countdown-text"></p>
+  </div>
+  <div id="race" class="race"></div>
+</section>
+
+<section id="screen-leaderboard" hidden>
+  {# Which round just ended, not just "standings" — on its own the old
+     heading gave no sense of where the game had got to. #}
+  <h2 id="round-done">That round's over</h2>
+  <p class="sub">Current standings</p>
+  <div id="leaderboard" class="race"></div>
+  <p class="sub">Next round starts when the organizer says so.</p>
+</section>
+
+<section id="screen-final" hidden>
+  <h2 id="final-headline">That's the game</h2>
+  <p id="final-subline" class="sub"></p>
+  <div id="final-leaderboard" class="race"></div>
+</section>
+
+<script>window.BARGAMES_BUILD = "{{ build }}";</script>
+<script src="static/app.js?v={{ v }}"></script>
+<script>bargames.initPlay();</script>
+<footer><p class="version">{{ build }}</p></footer>
+</body>
+</html>

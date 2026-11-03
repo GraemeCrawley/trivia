@@ -1,0 +1,6 @@
+{
+  "_comment": "The title, badge and colour theme shown on every screen. Edit this file (or set BARGAMES_TITLE / BARGAMES_BADGE / BARGAMES_THEME in .env) to theme your night. Themes: default, dusk, noon (see app/static/style.css).",
+  "title": "Trivia Night",
+  "badge": "",
+  "theme": "default"
+}

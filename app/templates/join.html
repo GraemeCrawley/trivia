@@ -1,0 +1,84 @@
+{#
+  Every URL in this app is relative, because a reverse proxy may strip a sub-path
+  prefix before the request arrives and an absolute /api/state would 404 in production.
+  But this template is served at TWO depths — "/" and "/j/<pin>" — and a relative
+  "static/style.css" under /j/4821 resolves to /j/static/style.css. So the page
+  arrived with no stylesheet, no script, and a "Join" button that went nowhere.
+  One <base> fixes every relative URL on the page at once, and deriving it from
+  the request path keeps it correct for any route depth added later.
+#}{% set depth = request.url.path.strip('/').count('/') %}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<base href="{{ '../' * depth if depth else './' }}">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#071310">
+<title>Join — {{ b.title }}</title>
+<link rel="stylesheet" href="static/style.css?v={{ v }}">
+</head>
+<body class="join-body" data-theme="{{ b.theme }}">
+
+{# Organizer's way in. Deliberately quiet: guests should not wonder what it is,
+   and it must never compete with the PIN field for a thumb. #}
+<button id="admin-entry" type="button" class="admin-entry"
+        aria-label="Organizer sign in" aria-expanded="false"
+        aria-controls="admin-prompt" title="Organizer">
+  <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+    <path fill="currentColor" d="M12 2a5 5 0 0 1 5 5v2h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2h1V7a5 5 0 0 1 5-5Zm0 2a3 3 0 0 0-3 3v2h6V7a3 3 0 0 0-3-3Zm0 9a2 2 0 0 0-1 3.73V18a1 1 0 0 0 2 0v-1.27A2 2 0 0 0 12 13Z"/>
+  </svg>
+</button>
+
+<div id="admin-prompt" class="admin-prompt" hidden role="dialog"
+     aria-modal="false" aria-labelledby="admin-prompt-title">
+  <p id="admin-prompt-title" class="admin-prompt-title">Organizer?</p>
+  <input id="admin-prompt-input" type="password" autocomplete="current-password"
+         placeholder="Password" aria-describedby="admin-prompt-error">
+  <button id="admin-prompt-go" type="button" class="admin-prompt-go">Go</button>
+  <p id="admin-prompt-error" class="error" role="alert" hidden></p>
+</div>
+
+<main class="card">
+  <h1 class="logo">{{ b.title }}</h1>{% if b.badge %}<p class="badge">{{ b.badge }}</p>{% endif %}
+
+  {# One question per screen. A guest doing this standing up in a bar should
+     never be looking at a PIN, a name field and a camera at the same time. #}
+
+  <section id="step-pin" class="step">
+    <p class="sub">Type the PIN showing on the organizer's phone.</p>
+    <label for="pin-input">Game PIN</label>
+    <input id="pin-input" inputmode="numeric" pattern="[0-9]*" maxlength="4"
+           autocomplete="off" placeholder="0000" value="{{ pin }}" class="pin"
+           aria-describedby="join-error">
+    <button id="btn-pin-next" class="big">Continue</button>
+  </section>
+
+  <section id="step-name" class="step" hidden>
+    <p class="sub">What should we call you?</p>
+    <label for="name-input">Your name</label>
+    <input id="name-input" maxlength="24" autocomplete="given-name" placeholder="Alex">
+    <button id="btn-name-next" class="big">Continue</button>
+    <button id="btn-name-back" class="link-back" type="button">Back</button>
+  </section>
+
+  <section id="step-selfie" class="step" hidden>
+    <p class="sub">Add a photo so everyone can see who's playing.</p>
+    <label for="selfie-input">Selfie <span class="opt-note">optional</span></label>
+    <div class="selfie-row">
+      <input id="selfie-input" type="file" accept="image/*" capture="user">
+      <label class="selfie-drop" id="selfie-drop" for="selfie-input" aria-hidden="true">+</label>
+      <p class="sub" id="selfie-hint">Skip this and you'll just show up as your initial.</p>
+    </div>
+    <p class="fineprint">Photos stay on this server, are only visible to people in this
+      game, and are deleted after tonight.</p>
+    <button id="btn-join" class="big">Join the game</button>
+    <button id="btn-skip-selfie" class="skip" type="button">Skip for now</button>
+    <button id="btn-selfie-back" class="link-back" type="button">Back</button>
+  </section>
+
+  <p id="join-error" class="error" role="alert" hidden></p>
+</main>
+<script src="static/app.js?v={{ v }}"></script>
+<script>bargames.initJoin();</script>
+<footer><p class="version">{{ build }}</p></footer>
+</body>
+</html>

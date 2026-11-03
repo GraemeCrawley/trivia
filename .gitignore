@@ -1,0 +1,29 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Game data: photos, saved games, login secrets. Never commit.
+data/
+selfies/
+*.jpg
+*.jpeg
+*.heic
+game-state*.json
+admin-secret
+
+# Python
+__pycache__/
+*.py[cod]
+.venv
+venv/
+.pytest_cache/
+tests/e2e/last-metrics.json
+
+# OS junk
+.DS_Store
+._*
+
+# Local tooling
+docs/.comments/
+.claude/

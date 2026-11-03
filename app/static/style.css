@@ -1,0 +1,1828 @@
+/* bargames — visual layer.
+ *
+ * Direction: an evening race meeting under floodlights. The ground is a deep
+ * green-black (turf at night, not a neutral near-black), the interface's own
+ * voice is rail-white and flag-gold, and every player carries a flat saturated
+ * "silk" colour the way riders do — because the one thing this interface has to
+ * do at a dark table, across six feet, half a drink in, is tell twenty-four
+ * people apart at a glance.
+ *
+ * Two rules the rest of the file follows:
+ *   1. No state is carried by colour alone. Every state that matters is encoded
+ *      at least twice — opacity AND size AND ring AND glyph — because a dim bar
+ *      and a colourblind player defeat hue on their own.
+ *   2. The occasion lives in seed/branding.json and in a [data-theme] block at
+ *      the bottom of this file. Nothing above that block knows what tonight is.
+ */
+
+/* ------------------------------------------------------------------ tokens */
+
+:root {
+  color-scheme: dark;
+
+  /* Ground and surfaces. Deep green-black rather than a tinted grey: a phone at
+     minimum brightness on a bar table sits on dark wood, and a green cast keeps
+     the screen from reading as a dead panel. */
+  --turf-900: #071310;
+  --turf-850: #0A1A15;
+  --turf-800: #0C1F19;
+  --turf-700: #14322A;
+  --turf-600: #1E4739;
+
+  --rail: #F2F5F1;        /* the running rail: primary text, borders, a horse's ring */
+  --rail-dim: #A9B8AF;    /* secondary text — 9.2:1 on --turf-900 */
+  --rail-mute: #7D9089;   /* the quietest text or mark allowed, in EVERY theme */
+  --rail-faint: #5C7268;  /* hairlines and edges, NEVER text or an icon.
+                             3.66:1 here but 2.66:1 under [data-theme="noon"] —
+                             these two figures are per-theme, not properties of
+                             the token. Check the theme you are shipping. */
+
+  --flag: #FFC233;        /* gold: go, points, the winner, the thing to tap */
+  --flag-deep: #C98A00;
+  --danger: #FF4D3D;      /* red flag: time running out, destructive actions */
+
+  --ink: var(--turf-900); /* text that sits on --flag or on a light silk */
+
+  /* Type. No CDN is allowed here, so personality has to come from weight, width
+     and scale rather than a downloaded face. The display stack is deliberately
+     condensed — the voice of a racecard and a saddlecloth — and falls back to
+     the system face where no narrow cut exists. */
+  --font-display: "Arial Narrow", "Helvetica Neue Condensed", "Roboto Condensed",
+                  "Liberation Sans Narrow", "Nimbus Sans Narrow", system-ui, sans-serif;
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  --t-xs: 0.8125rem;   /* 13 */
+  --t-sm: 0.9375rem;   /* 15 */
+  --t-base: 1.0625rem; /* 17 */
+  --t-md: 1.3125rem;   /* 21 */
+  --t-lg: 1.625rem;    /* 26 */
+  --t-xl: 2.0625rem;   /* 33 */
+  --t-2xl: 2.5625rem;  /* 41 */
+  --t-3xl: 3.5rem;     /* 56 */
+  --t-4xl: 4.75rem;    /* 76 */
+
+  --gap: 0.75rem;
+  --pad: 1.125rem;
+  --radius: 14px;
+  --radius-sm: 9px;
+
+  /* Tap targets. A tipsy person in the dark does not aim; she lands. */
+  --tap: 60px;
+  --tap-big: 76px;
+
+  --lift: 5px;  /* how far a pressable sits above its own hard edge */
+}
+
+/* Silks. A fixed, curated set rather than a hue derived from the player id:
+   evenly-spaced hues produce neighbours nobody can tell apart at 44px, and half
+   of them land on a muddy value that fails contrast against both ink and rail.
+   Each silk ships with the ink that is legible on it. JS assigns an index from
+   the player id, so a player keeps her colour across reloads and phones.
+
+   EVERY PAIR MUST CLEAR 4.5:1 — the silk carries her initial when she skipped a
+   photo, and her running number on the saddlecloth at 12px, so both are real
+   text on a real background. Two of these were picked by eye and did not: #1 was
+   3.98 and #11 was 3.31. They only surfaced when a screen happened to render
+   those two indices, which is the trap — a page audit passes on whichever silks
+   the fixture's player ids drew that run. Check the TWELVE PAIRS by arithmetic
+   when you touch this table, not the page. Measured ratios are in the comments;
+   an uncommented pair has not been checked.
+
+   The floor here is 5.0, not 4.5, because the saddlecloth numeral is 12px and
+   antialiased: a colour-pair ratio is an UPPER BOUND that a thin glyph never
+   actually reaches. Three pairs sat at 4.52-4.81 — passing on paper, marginal
+   on a phone at arm's length — and were darkened rather than left on the line. */
+[data-silk="0"]  { --silk: #D8232A; --silk-ink: #FFF; }  /* 5.01 */
+[data-silk="1"]  { --silk: #1F5FD8; --silk-ink: #FFF; }   /* 5.70 */
+[data-silk="2"]  { --silk: #F5A800; --silk-ink: #22160A; }  /* 8.83 */
+[data-silk="3"]  { --silk: #0FA873; --silk-ink: #05201A; }  /* 5.59 */
+[data-silk="4"]  { --silk: #8D39DC; --silk-ink: #FFF; }  /* 5.60 */
+[data-silk="5"]  { --silk: #F07EB0; --silk-ink: #2A0D1C; }  /* 7.09 */
+[data-silk="6"]  { --silk: #21C3D8; --silk-ink: #04222A; }  /* 7.78 */
+[data-silk="7"]  { --silk: #FF7A2F; --silk-ink: #2A1103; }  /* 6.85 */
+[data-silk="8"]  { --silk: #485ADE; --silk-ink: #FFF; }  /* 5.54 */
+[data-silk="9"]  { --silk: #A8CE3A; --silk-ink: #1D260A; }  /* 8.66 */
+[data-silk="10"] { --silk: #C2266D; --silk-ink: #FFF; }  /* 5.54 */
+[data-silk="11"] { --silk: #B0855A; --silk-ink: #241608; } /* 5.32 */
+
+/* -------------------------------------------------------------------- base */
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--turf-900);
+  /* One soft floodlight from above, so the top of the screen — where the clock
+     and the question live — reads as the lit part of the track.
+     The peak is #05271E and not something brighter because THE GROUND IS A RANGE,
+     not a colour: at #12332A, --rail-mute measured 4.06:1 and --danger 4.16:1 for
+     text sitting in the lit part, against 5.61 and 5.75 on the flat token that
+     every check had been measuring. axe-core will not judge these at all — it
+     returns "background color could not be determined due to a background
+     gradient" and an abstention reads like a pass, so check these stops by hand. */
+  background-image: radial-gradient(120% 55% at 50% -8%, #05271E 0%, transparent 62%);
+  background-attachment: fixed;
+  color: var(--rail);
+  font: var(--t-base)/1.5 var(--font-body);
+  overflow-x: hidden;
+}
+
+h1, h2, h3 {
+  font-family: var(--font-display);
+  font-stretch: condensed;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.08;
+  margin: 0 0 0.4em;
+  text-wrap: balance;
+}
+
+h1 { font-size: var(--t-2xl); }
+h2 { font-size: var(--t-xl); }
+
+p { margin: 0 0 0.75em; }
+p:last-child { margin-bottom: 0; }
+
+[hidden] { display: none !important; }
+
+img { max-width: 100%; }
+
+.sub {
+  color: var(--rail-dim);
+  font-size: var(--t-sm);
+  max-width: 34ch;
+}
+
+.error {
+  color: var(--danger);
+  font-size: var(--t-sm);
+  font-weight: 600;
+  border-left: 3px solid var(--danger);
+  padding-left: 0.6rem;
+  margin-top: 0.75rem;
+}
+
+/* Every interactive thing gets the same visible ring, and it never relies on
+   the element's own colour to be seen. */
+:focus-visible {
+  outline: 3px solid var(--flag);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* --------------------------------------------------------------- pressables
+ *
+ * A button here is a physical object: a slab sitting above its own hard edge,
+ * which collapses under the thumb. No soft grey shadow and no hover-only state
+ * — on a phone there is no hover, and the press is the only feedback there is.
+ */
+
+.big, button.opt, .tf {
+  -webkit-appearance: none;
+  appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: var(--tap-big);
+  padding: 0.75rem 1rem;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--flag);
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-stretch: condensed;
+  font-size: var(--t-md);
+  font-weight: 700;
+  letter-spacing: 0.005em;
+  text-align: center;
+  cursor: pointer;
+  box-shadow: 0 var(--lift) 0 var(--flag-deep);
+  transition: transform 90ms ease, box-shadow 90ms ease;
+  touch-action: manipulation;
+}
+
+.big:active, button.opt:active, .tf:active {
+  transform: translateY(var(--lift));
+  box-shadow: 0 0 0 var(--flag-deep);
+}
+
+.big:disabled {
+  background: var(--turf-700);
+  color: var(--rail-faint);
+  box-shadow: 0 var(--lift) 0 var(--turf-800);
+  cursor: default;
+}
+
+/* Quiet slab: everything that is not the one thing to tap right now. */
+.big.ghost {
+  background: var(--turf-700);
+  color: var(--rail);
+  box-shadow: 0 var(--lift) 0 #0A231C;
+}
+
+.big.danger {
+  background: transparent;
+  color: var(--danger);
+  border: 2px solid var(--danger);
+  box-shadow: none;
+  font-size: var(--t-base);
+  min-height: var(--tap);
+}
+.big.danger:active { transform: translateY(2px); }
+
+.big.warn { background: var(--danger); color: #FFF; box-shadow: 0 var(--lift) 0 #A32114; }
+.big.go   { background: var(--flag); color: var(--ink); }
+
+/* ------------------------------------------------------------------- pills */
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.28rem 0.7rem;
+  border: 1px solid var(--rail-faint);
+  border-radius: 999px;
+  color: var(--rail-dim);
+  font-size: var(--t-xs);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.22rem 0.7rem;
+  border-radius: 999px;
+  background: var(--flag);
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-stretch: condensed;
+  font-size: var(--t-sm);
+  font-weight: 700;
+  margin: 0;
+}
+
+/* ------------------------------------------------------------------ avatars
+ *
+ * One avatar component, used identically in the bubble field, the horse race
+ * and the pick-a-player grid — so a face learned in one place is recognised in
+ * the others. No selfie means her initial on her silk, never a blank.
+ */
+
+.avatar {
+  position: relative;
+  width: var(--avatar, 56px);
+  height: var(--avatar, 56px);
+  flex: 0 0 auto;
+  border-radius: 50%;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: var(--silk, var(--turf-600));
+  color: var(--silk-ink, var(--rail));
+  font-family: var(--font-display);
+  font-stretch: condensed;
+  font-size: calc(var(--avatar, 56px) * 0.46);
+  font-weight: 700;
+  line-height: 1;
+  user-select: none;
+}
+
+.avatar img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* -------------------------------------------------------------- the field
+ *
+ * The bubble waiting room. Every participant is a bubble drifting at the start,
+ * and the question the screen has to answer instantly is "who are we waiting
+ * for". Answered and still-thinking differ in FOUR ways — ring, opacity, scale
+ * and a check glyph — so neither a dim screen nor colourblindness can flatten
+ * them into each other.
+ */
+
+.bubbles {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-content: flex-start;
+  gap: 0.9rem 0.65rem;
+  padding: 0.5rem 0;
+}
+
+.bubble {
+  --avatar: 62px;
+  position: relative;
+  width: 76px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  animation: drift var(--drift, 6s) ease-in-out infinite;
+  will-change: transform;
+}
+
+.bubble .avatar {
+  border: 3px solid var(--ring, var(--rail-faint));
+  box-shadow: 0 0 0 1px var(--turf-900);
+}
+
+.bname {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--t-xs);
+  font-weight: 600;
+  color: var(--rail-dim);
+  text-align: center;
+}
+
+/* In: full colour, solid gold rail, a check. */
+.bubble.in {
+  --ring: var(--flag);
+  opacity: 1;
+}
+.bubble.in .bname { color: var(--rail); }
+.bubble.in::after {
+  content: "✓";
+  position: absolute;
+  top: -2px;
+  right: 2px;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--flag);
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 0 0 2px var(--turf-900);
+}
+
+/* Still thinking: desaturated, dimmed, smaller, dashed ring, breathing.
+   The dimming is applied to the FACE, never to the whole bubble. Fading the
+   bubble took the name down to 3.5:1 against the ground — below AA for 13px
+   text — and the person you are waiting for is exactly the one whose name you
+   need to be able to read. */
+.bubble.thinking {
+  --ring: var(--rail-faint);
+  opacity: 1;
+}
+.bubble.thinking .avatar {
+  filter: saturate(0.2) brightness(0.62);
+  border-style: dashed;
+  transform: scale(0.86);
+  animation: breathe 2.4s ease-in-out infinite;
+  animation-delay: inherit;
+}
+.bubble.thinking .bname { font-weight: 500; }
+
+@keyframes drift {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50%      { transform: translateY(-9px) rotate(-1.5deg); }
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 0.72; }
+  50%      { opacity: 1; }
+}
+
+/* --------------------------------------------------------------- the race
+ *
+ * The one loud thing in the interface, and the only place that spends any
+ * decoration. Each row is a racecard line — her name, her lane, her score —
+ * and within the lane the face travels a distance of score / leader, so the
+ * leader is always at the post and the field reads as a gap. The gap is the
+ * only comparison anybody actually makes.
+ *
+ * The face travels on a transform measured against the TRACK's width (100cqw),
+ * which is why the track is a container. A percentage translateX would be a
+ * percentage of the face, and thirty faces measured in JS every time somebody
+ * scores is thirty layouts the phone cannot afford.
+ */
+
+.race {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: linear-gradient(180deg, var(--turf-850), var(--turf-900));
+}
+
+.lane {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: 52px;
+  padding: 0 0.5rem;
+  border-bottom: 1px solid #0F2A22;   /* the running rail between lanes */
+}
+.lane:last-child { border-bottom: 0; }
+
+/* The leader's lane is lit, so first place is legible without reading a number. */
+.lane.leader { background: linear-gradient(90deg, rgba(255, 194, 51, 0.12), transparent 65%); }
+
+.hname {
+  width: 5.5rem;
+  flex: 0 0 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--t-sm);
+  font-weight: 600;
+  color: var(--rail-dim);
+}
+.lane.leader .hname { color: var(--rail); }
+
+.track {
+  position: relative;
+  flex: 1 1 auto;
+  height: 100%;
+  container-type: inline-size;
+  /* No finish post. It was a chequered marker from the racing metaphor, and
+     with the metaphor gone it meant nothing — testers twice read the three
+     dots as a button and tried to tap them. */
+}
+
+.horse {
+  --avatar: 38px;
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 38px;
+  margin-top: -19px;
+  /* translateX only: thirty of these have to move at once on a phone GPU. */
+  transform: translateX(calc(var(--frac, 0) * (100cqw - 50px)));
+  transition: transform 800ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  will-change: transform;
+}
+
+.horse .avatar {
+  border: 2px solid var(--rail);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.55);
+}
+
+/* The saddlecloth: her silk and her place in the field, which is how a race is
+   read at a distance when the faces are 38px across. */
+.saddle {
+  position: absolute;
+  left: -5px;
+  bottom: -4px;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 3px;
+  display: grid;
+  place-items: center;
+  border-radius: 5px;
+  background: var(--silk, var(--turf-600));
+  color: var(--silk-ink, var(--rail));
+  font-family: var(--font-display);
+  font-stretch: condensed;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 0 0 2px var(--turf-900);
+}
+
+.hscore {
+  width: 3rem;
+  flex: 0 0 auto;
+  text-align: right;
+  font-family: var(--font-display);
+  font-stretch: condensed;
+  font-size: var(--t-md);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--flag);
+}
+
+/* A face that just gained ground gets one flash of gold. Nothing else in the
+   race moves on its own, so the eye goes to the right lane. */
+.horse.gained .avatar { animation: surge 900ms ease-out 1; }
+
+@keyframes surge {
+  0%   { box-shadow: 0 0 0 0 rgba(255, 194, 51, 0.85); }
+  100% { box-shadow: 0 0 0 14px rgba(255, 194, 51, 0); }
+}
+
+/* --------------------------------------------------------------- join page */
+
+.join-body {
+  display: grid;
+  /* Anchored near the top, NOT centred. Centring was right when this was one
+     long form; each wizard step is short, so centring stranded it in the
+     middle of a tall phone with a third of the screen empty above and below,
+     and moved the whole card every time a step changed height. */
+  place-items: start center;
+  min-height: 100dvh;
+  padding: clamp(1rem, 5vw, 2rem);
+  padding-top: calc(clamp(1.5rem, 9vh, 5rem) + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(clamp(1rem, 5vw, 2rem) + env(safe-area-inset-bottom, 0px));
+}
+
+.card {
+  width: min(430px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.logo {
+  font-size: var(--t-3xl);
+  margin-bottom: 0.15em;
+  text-wrap: balance;
+}
+
+.card .badge { align-self: flex-start; margin-bottom: 0.9rem; }
+.card .sub { margin-bottom: 1.4rem; }
+
+.card label,
+.cfg label {
+  font-size: var(--t-sm);
+  font-weight: 600;
+  color: var(--rail-dim);
+  margin-top: 0.9rem;
+}
+
+.opt-note { color: var(--rail-mute); font-weight: 500; }
+
+input[type="text"], input[type="password"], input[type="number"], input:not([type]) {
+  width: 100%;
+  min-height: var(--tap);
+  padding: 0.5rem 0.9rem;
+  border: 2px solid var(--turf-600);
+  border-radius: var(--radius-sm);
+  background: var(--turf-850);
+  color: var(--rail);
+  font: 600 var(--t-md)/1.3 var(--font-body);
+}
+
+input::placeholder { color: var(--rail-mute); }
+
+/* The PIN is the whole job of the first screen: four digits, typed once, in the
+   dark, by someone holding a drink. It gets the largest type in the app. */
+.pin {
+  font-family: var(--font-display) !important;
+  font-stretch: condensed;
+  font-size: var(--t-3xl) !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.22em;
+  text-align: center;
+  padding-left: 0.22em !important;   /* balance the trailing letter-space */
+  min-height: var(--tap-big);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Selfie: a raw file input is unusable-looking, so the label is the control and
+   the input is visually hidden while staying focusable and still labelled. */
+.selfie-row {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin-top: 0.4rem;
+}
+
+.selfie-drop {
+  width: 72px;
+  height: 72px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  border: 2px dashed var(--rail-faint);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: var(--turf-850);
+  color: var(--rail-mute);
+  font-size: 26px;
+  cursor: pointer;
+}
+.selfie-drop img { width: 100%; height: 100%; object-fit: cover; }
+.selfie-drop.filled { border-style: solid; border-color: var(--flag); }
+
+input[type="file"] {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+input[type="file"]:focus-visible + .selfie-drop {
+  outline: 3px solid var(--flag);
+  outline-offset: 3px;
+}
+
+.fineprint {
+  color: var(--rail-dim);
+  font-size: var(--t-xs);
+  line-height: 1.45;
+  max-width: 40ch;
+  margin: 0.9rem 0 1.2rem;
+}
+
+/* ----------------------------------------------------------- the join wizard
+ *
+ * One question per screen: PIN, then name, then photo. Two things this has to
+ * get right that a single long form did not have to.
+ *
+ * 1. THE PRIMARY BUTTON MUST NOT MOVE between screens. Measured on the baseline
+ *    it travelled 52px from step to step — half a thumb-width — so a guest who
+ *    taps Continue and reaches for Continue again is re-aiming at a target that
+ *    moved while the screen changed under her. The steps are equal-height boxes,
+ *    the action is pushed to the bottom of the box, and the row the Back link
+ *    lives in is reserved even on the first screen, which has no Back.
+ *
+ * 2. SKIP IS NOT BACK. On the photo screen "Skip for now" completes the join and
+ *    "Back" undoes it, and the baseline drew them as two identical underlined
+ *    links, one above the other. Skip is now a quiet slab — an action — and
+ *    --link-back stays navigation. Getting that wrong sends someone who meant to
+ *    skip the photo back to typing her name again.
+ */
+
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-height: 22rem;   /* binds on ALL of PIN/name, so neither floats free */
+  animation: step-in 180ms ease-out;
+}
+
+/* Pushes the action group to the bottom of the equal-height box. */
+.step > .big { margin-top: auto; }
+
+/* Reserve the Back row on a step that has no Back, so the button above it lands
+   in the same place as on the steps that do. :has() is the whole mechanism; if a
+   browser lacks it the rule is skipped and the layout is merely the old one. */
+.step:not(:has(.link-back))::after {
+  content: "";
+  display: block;
+  min-height: 44px;
+  margin-top: 0.5rem;   /* must match .link-back's, or the reserve is the wrong size */
+}
+
+@keyframes step-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Backwards navigation. Quiet, text-shaped, never a slab — it is not an action
+   anyone came here to take. */
+.link-back {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--t-sm);
+  color: var(--rail-mute);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  touch-action: manipulation;
+}
+.link-back:hover { color: var(--rail-dim); }
+
+/* Skipping the photo is a real choice with a real outcome, not a way out of the
+   flow, so it gets the shape of a button and the weight of a secondary one. */
+.skip {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  min-height: 52px;
+  margin: 0.55rem 0 0;   /* clear of the primary button's hard edge */
+  border: 1px solid var(--turf-600);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--rail-dim);
+  font-family: var(--font-display);
+  font-stretch: condensed;
+  font-size: var(--t-base);
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 90ms ease;
+}
+.skip:active { transform: translateY(2px); }
+.skip:hover { color: var(--rail); }
+
+@media (prefers-reduced-motion: reduce) {
+  .step { animation: none; }
+  .skip { transition: none; }
+}
+
+/* ------------------------------------------------- the organizer's way in
+ *
+ * One door, on a page thirty guests use for one thing: typing a PIN. So it is
+ * placed and sized to be found by someone looking for it and ignored by
+ * everyone else — top-right corner, 44px of tap target around a 20px mark, no
+ * border, no fill, no label.
+ *
+ * Quiet is bought with SIZE AND PLACEMENT, not with sub-threshold contrast. The
+ * baseline reached for opacity .55, which put the mark at 2.5:1 — under the 3:1
+ * that WCAG 1.4.11 asks of a control you are expected to find and press. An
+ * interactive control nobody can see is not discreet, it is broken, and it is
+ * broken first for the people who can least afford it.
+ *
+ * It uses --rail-mute, NOT --rail-faint. Measured on a served page, faint is
+ * 3.66:1 on the default ground and 2.66:1 on the light one — the token's own
+ * comment quotes 3.6:1, which is true of the dark theme only. A mark checked in
+ * one theme is checked in one theme. --rail-mute clears 3:1 in all three.
+ */
+
+.join-body { position: relative; }
+
+.admin-entry {
+  position: absolute;
+  top: max(10px, env(safe-area-inset-top, 0px));
+  right: 12px;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--rail-mute);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: color 120ms ease;
+}
+
+/* Open, hovered or focused it stops hiding — at that point she has found it and
+   the reason to stay quiet is gone. */
+.admin-entry:hover,
+.admin-entry[aria-expanded="true"] { color: var(--rail-dim); }
+.admin-entry[aria-expanded="true"] { background: var(--turf-800); }
+
+.admin-prompt {
+  position: absolute;
+  top: calc(max(10px, env(safe-area-inset-top, 0px)) + 52px);
+  right: 12px;
+  z-index: 30;
+  width: min(290px, calc(100vw - 24px));
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.9rem;
+  border-radius: var(--radius);
+  background: var(--turf-800);
+  border: 1px solid var(--turf-600);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.55);
+}
+
+.admin-prompt-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-stretch: condensed;
+  font-size: var(--t-md);
+  font-weight: 700;
+}
+
+.admin-prompt input { margin: 0; }
+
+/* Not gold. Gold means points everywhere else in this app, and signing in as the
+   organizer is not scoring — borrowing the colour here would spend it. */
+.admin-prompt-go {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  min-height: 52px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--turf-600);
+  color: var(--rail);
+  font-family: var(--font-display);
+  font-stretch: condensed;
+  font-size: var(--t-base);
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 3px 0 #0B241C;
+  transition: transform 90ms ease, box-shadow 90ms ease;
+  touch-action: manipulation;
+}
+.admin-prompt-go:active { transform: translateY(3px); box-shadow: 0 0 0 #0B241C; }
+.admin-prompt-go:disabled { opacity: 0.6; cursor: default; }
+
+.admin-prompt .error { margin-top: 0; }
+
+/* ------------------------------------------------------------- play: chrome */
+
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem var(--pad);
+  padding-top: calc(0.55rem + env(safe-area-inset-top, 0px));
+  background: rgba(7, 19, 16, 0.92);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--turf-700);
+}
+
+#you-name {
+  font-weight: 600;
+  font-size: var(--t-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bar .badge { font-size: var(--t-xs); }
+
+.score {
+  margin-left: auto;
+  font-family: var(--font-display);
+  font-stretch: condensed;
+  font-size: var(--t-md);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--flag);
+}
+
+body > section {
+  padding: var(--pad);
+  padding-bottom: calc(2rem + env(safe-area-inset-bottom, 0px));
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+#screen-lobby, #screen-waiting, #screen-reveal,
+#screen-leaderboard, #screen-final {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* ------------------------------------------------------ play: the question */
+
+/* The question screen is a thumb layout, not a document: the prompt sits under
+   the clock at the top where the eye starts, and the things you tap are pushed
+   to the bottom of the screen where the thumb already is. Anything else asks a
+   person holding a drink to reach across her own phone. */
+#screen-question {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100dvh - 62px - env(safe-area-inset-top, 0px));
+}
+
+#q-options, #q-truefalse, #q-wheel, #q-text, #q-players { margin-top: auto; }
+
+.qhead {
+  display: flex;
+  align-items: center;
+  gap: var(--gap);
+  margin-bottom: 0.9rem;
+}
+
+/* The clock. One ring, big, with the seconds inside it in tabular numerals so
+   the numeral never shifts as it counts down. Under five seconds it changes
+   colour AND thickens AND the numeral turns — the client draws it, the server
+   owns it. */
+.timer {
+  position: relative;
+  margin-left: auto;
+  width: 66px;
+  height: 66px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+}
+
+#timer-ring {
+  position: absolute;
+  inset: 0;
+  transform: rotate(-90deg);
+}
+
+#timer-ring .ring-bg {
+  fill: none;
+  stroke: var(--turf-700);
+  stroke-width: 4;
+}
+
+#timer-ring .ring-fg {
+  fill: none;
+  stroke: var(--rail);
+  stroke-width: 4;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 180ms linear, stroke 200ms ease, stroke-width 200ms ease;
+}
+
+#timer-ring .ring-fg.urgent { stroke: var(--danger); stroke-width: 7; }
+
+#timer-text {
+  font-family: var(--font-display);
+  font-stretch: condensed;
+  font-size: var(--t-lg);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.timer.urgent #timer-text { color: var(--danger); }
+
+#q-prompt {
+  font-size: var(--t-xl);
+  margin-bottom: 0.7rem;
+}
+
+#q-image {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: var(--radius);
+  border: 1px solid var(--turf-700);
+  margin-bottom: 1rem;
+  background: var(--turf-800);
+}
+
+/* Multiple choice: a true 2x2 grid of slabs, each tall enough to hit without
+   aiming. Long options wrap rather than shrink — nothing here scales text down
+   to fit, because unreadable-but-fitting is the wrong trade in a dark room. */
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--gap);
+}
+
+button.opt {
+  min-height: 108px;
+  padding: 0.8rem 0.7rem;
+  background: var(--turf-600);
+  color: var(--rail);
+  font-size: var(--t-md);
+  line-height: 1.2;
+  white-space: normal;
+  box-shadow: 0 var(--lift) 0 #0B241C;
+  border: 1px solid #2E6650;
+}
+
+button.opt.picked {
+  background: var(--flag);
+  color: var(--ink);
+  border-color: var(--flag);
+  box-shadow: 0 var(--lift) 0 var(--flag-deep);
+}
+
+/* True / false: two full-width bars. Not a 2x2 grid, because there is no fourth
+   option to balance it and a stacked pair is a shorter thumb journey. */
+#q-truefalse {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+.tf {
+  min-height: 96px;
+  background: var(--turf-600);
+  color: var(--rail);
+  font-size: var(--t-xl);
+  box-shadow: 0 var(--lift) 0 #0B241C;
+  border: 1px solid #2E6650;
+}
+.tf[data-value="true"]  { border-left: 6px solid #0FA873; }
+.tf[data-value="false"] { border-left: 6px solid var(--danger); }
+.tf.picked { background: var(--flag); color: var(--ink); border-color: var(--flag); }
+
+/* Number wheel. The control stays a native range input — it is keyboard
+   operable, it is what a screen reader announces, and it is what an automated
+   test can drive — but it is dressed as a tote dial: an enormous tabular
+   readout over a track with its own bounds printed at the ends. */
+#q-wheel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+#wheel-value {
+  display: block;
+  text-align: center;
+  font-family: var(--font-display);
+  font-stretch: condensed;
+  font-size: var(--t-4xl);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--flag);
+  margin: 0.4rem 0 0.2rem;
+}
+
+.wheel-track { position: relative; padding: 0.5rem 0 0.2rem; }
+
+.wheel-bounds {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--t-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--rail-dim);
+  margin-top: 0.35rem;
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 46px;              /* the whole height is draggable, not just the bar */
+  background: transparent;
+  margin: 0;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 14px;
+  border-radius: 999px;
+  background: var(--turf-700);
+  border: 1px solid var(--turf-600);
+}
+input[type="range"]::-moz-range-track {
+  height: 14px;
+  border-radius: 999px;
+  background: var(--turf-700);
+  border: 1px solid var(--turf-600);
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 46px;
+  height: 46px;
+  margin-top: -17px;
+  border-radius: 50%;
+  background: var(--flag);
+  border: 3px solid var(--turf-900);
+  box-shadow: 0 3px 0 var(--flag-deep);
+  cursor: grab;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--flag);
+  border: 3px solid var(--turf-900);
+  box-shadow: 0 3px 0 var(--flag-deep);
+  cursor: grab;
+}
+
+/* Free text */
+#q-text { display: flex; flex-direction: column; gap: var(--gap); }
+#q-text-input { font-size: var(--t-md); min-height: var(--tap-big); }
+
+/* Pick a player: the bubble field again, but tappable. Same faces, same silks,
+   so she is choosing between people she has been watching, not a fresh grid. */
+.picker { gap: 1rem 0.7rem; }
+
+.picker .bubble {
+  --avatar: 72px;
+  width: 86px;
+  min-height: 96px;
+  padding: 0.3rem 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  animation: none;         /* a moving target is a cruel tap target */
+}
+.picker .bubble .avatar { border-color: var(--silk, var(--rail-faint)); }
+.picker .bubble.picked .avatar { border-color: var(--flag); border-width: 4px; }
+.picker .bubble:active { transform: scale(0.95); }
+
+/* ------------------------------------------------------- play: the waiting */
+
+/* The headline here is only confirmation — she already knows she answered,
+   she tapped. The number is the thing she is actually watching, so the number
+   is the thing that is large. */
+#screen-waiting h2 {
+  font-size: var(--t-md);
+  color: var(--rail-dim);
+  margin-bottom: 0.1em;
+}
+
+#screen-waiting .sub { max-width: none; margin-bottom: 0.2rem; }
+
+#bubble-count {
+  display: block;
+  font-family: var(--font-display);
+  font-stretch: condensed;
+  font-size: var(--t-2xl);
+  font-weight: 700;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+  color: var(--rail);
+}
+
+/* -------------------------------------------------------- play: the reveal */
+
+/* Gold means "your points" everywhere else in the app, so the correct answer
+   does not get to wear it: two large gold numbers side by side on the one
+   screen where she is looking for her own score is a muddle. The label recedes,
+   the answer is plain rail-white, and the points are the only gold thing. */
+#reveal-correct {
+  font-size: var(--t-md);
+  font-weight: 600;
+  color: var(--rail-dim);
+  margin-bottom: 0.1em;
+}
+
+.reveal-answer {
+  display: block;
+  font-size: var(--t-2xl);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: var(--rail);
+}
+
+.points {
+  font-family: var(--font-display);
+  font-stretch: condensed;
+  font-size: var(--t-3xl);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--flag);
+  margin: 0 0 1rem;
+}
+.points.zero { color: var(--rail-dim); font-size: var(--t-xl); }
+
+/* ------------------------------------------------------------------- admin */
+
+#admin-login { max-width: 430px; }
+
+.cfg {
+  display: grid;
+  gap: 0.2rem;
+  padding: var(--pad);
+  border: 1px solid var(--turf-700);
+  border-radius: var(--radius);
+  background: var(--turf-850);
+  margin-bottom: var(--gap);
+}
+
+.cfg label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap);
+  margin-top: 0.5rem;
+}
+.cfg input { width: 104px; text-align: center; font-variant-numeric: tabular-nums; }
+.cfg .big { margin-top: 1rem; }
+
+/* The PIN board. The organizer holds this up and a room types what is on it, so
+   it is the biggest thing on her phone by a wide margin. */
+.pinbox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  padding: var(--pad);
+  border-radius: var(--radius);
+  background: var(--turf-850);
+  border: 1px solid var(--turf-700);
+  margin-bottom: var(--gap);
+}
+
+.pin-big {
+  font-family: var(--font-display);
+  font-stretch: condensed;
+  font-size: var(--t-4xl);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--flag);
+  padding-left: 0.12em;
+}
+
+.joinlink {
+  font-size: var(--t-xs);
+  color: var(--rail-dim);
+  word-break: break-all;
+  text-align: center;
+  text-decoration-color: var(--rail-faint);
+}
+
+.admin-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 var(--gap);
+}
+
+.admin-status .pill.live {
+  border-color: var(--flag);
+  color: var(--flag);
+}
+
+.roster { color: var(--rail-dim); font-size: var(--t-sm); }
+
+.admin-section { margin: 0 0 var(--gap); }
+
+.admin-section > h2 {
+  font-size: var(--t-md);
+  color: var(--rail-dim);
+  margin-bottom: 0.5rem;
+}
+
+/* The control dock. "End question" is the one human override on a barrier that
+   thirty people are waiting on, so it lives under the thumb at all times and is
+   never scrolled past. Only the control that is meaningful right now is shown —
+   the organizer should never be hunting with a room watching. */
+.controls {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.7rem var(--pad);
+  padding-bottom: calc(0.7rem + env(safe-area-inset-bottom, 0px));
+  margin: var(--gap) calc(var(--pad) * -1) 0;
+  background: rgba(7, 19, 16, 0.94);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid var(--turf-700);
+}
+
+.admin-foot {
+  padding: var(--pad) 0 0;
+  border-top: 1px solid var(--turf-800);
+  margin-top: var(--gap);
+}
+
+/* ------------------------------------------------ the panel's own errors
+ *
+ * #panel-error reports a refused control on the organizer's phone — most often
+ * "Nobody has joined yet." after a START with an empty lobby, which is the most
+ * likely thing to happen at the bar. It must be INSIDE #admin-panel: the login
+ * screen's #admin-error is hidden the moment she signs in, so a message written
+ * there is invisible exactly when she needs it.
+ *
+ * It sits directly above the sticky control dock, so it appears next to the
+ * button that just refused. The danger is carried by the edge and the wash; the
+ * words themselves stay rail-white, which reads calmer than a block of red text
+ * and measures 15:1 rather than 5:1 — a message worth interrupting her for is a
+ * message worth being able to read at a glance.
+ */
+
+#panel-error {
+  margin: 0 0 0.6rem;
+  padding: 0.7rem 0.85rem;
+  border: 0;
+  border-left: 4px solid var(--danger);
+  border-radius: var(--radius-sm);
+  /* Plain fallback first: where color-mix is unsupported the wash is simply
+     absent, and the edge and the text still carry the message. */
+  background: transparent;
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+  color: var(--rail);
+  font-size: var(--t-base);
+  font-weight: 600;
+  line-height: 1.35;
+  scroll-margin: 90px 0;
+}
+
+/* ------------------------------------------------- the review queue
+ *
+ * Near-miss free-text spellings that ALREADY SCORED. The default is generous
+ * (HOW-IT-WORKS section 7), so this is a revoke queue, not an approve queue, and the
+ * design has to say so: nothing here is pending, nothing is waiting on her, and
+ * she can close the game without touching it. Hence a settled card with the
+ * points already stated, rather than a row of decisions with an empty checkbox.
+ *
+ * It is on the organizer's phone only — the payload is other players' answers,
+ * which on a player's phone would be a live answer key.
+ */
+
+.flagged .sub { max-width: 46ch; margin-bottom: 0.7rem; }
+
+#flagged-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.flagrow {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.6rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: var(--radius-sm);
+  background: var(--turf-850);
+  /* Gold is points everywhere in this app, and points are exactly what is at
+     stake in this row. */
+  border-left: 4px solid var(--flag);
+}
+
+.flagtext { display: flex; flex-direction: column; gap: 0.15rem; }
+
+.flagq {
+  font-size: var(--t-xs);
+  color: var(--rail-dim);
+  line-height: 1.35;
+}
+
+.flagline { font-size: var(--t-sm); color: var(--rail-dim); }
+.flagline strong { color: var(--rail); font-weight: 700; }
+
+/* What she is actually judging. Not italic: at 17px on a dark phone screen an
+   italic misspelling is harder to read than the misspelling is to spot, and the
+   quotation marks already mark it as verbatim. */
+.flaggiven {
+  font-style: normal;
+  font-weight: 700;
+  font-size: var(--t-base);
+  color: var(--rail);
+}
+
+.flagbtn {
+  -webkit-appearance: none;
+  appearance: none;
+  align-self: flex-end;
+  min-height: 48px;
+  padding: 0 1.1rem;
+  border: 2px solid var(--danger);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--danger);
+  font-family: var(--font-display);
+  font-stretch: condensed;
+  font-size: var(--t-base);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 90ms ease;
+}
+.flagbtn:active { transform: translateY(2px); }
+.flagbtn:disabled { opacity: 0.5; cursor: default; }
+
+/* Giving it back is restoring the status quo, so it is quiet, not alarming. */
+.flagbtn.restore {
+  border-color: var(--rail-faint);
+  color: var(--rail);
+}
+
+/* Revoked. Four cues, none of them hue on its own: the edge changes, the answer
+   is struck through — which is literally what was done to it — the chip appears,
+   and the button now names the opposite verdict. */
+.flagrow.revoked { border-left-color: var(--danger); }
+.flagrow.revoked .flaggiven {
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+  color: var(--rail-dim);
+}
+.flagrow.revoked .flagtext::after {
+  content: "revoked";
+  align-self: flex-start;
+  margin-top: 0.3rem;
+  padding: 0.1rem 0.5rem;
+  border: 1px solid var(--danger);
+  border-radius: 999px;
+  color: var(--danger);
+  font-size: var(--t-xs);
+  font-weight: 700;
+}
+
+/* The count in the status line. Once every call has been dealt with it stops
+   asking for attention rather than disappearing — disappearing would read as
+   "there was nothing", which is a different fact. */
+.admin-status .pill.call { border-color: var(--flag); color: var(--flag); }
+.admin-status .pill.call.settled { border-color: var(--rail-faint); color: var(--rail-dim); }
+
+@media (min-width: 620px) {
+  .flagrow { flex-direction: row; align-items: center; }
+  .flagtext { flex: 1 1 auto; }
+  .flagbtn { align-self: center; flex: 0 0 auto; }
+}
+
+/* ----------------------------------------------------------- motion + a11y */
+
+@media (prefers-reduced-motion: reduce) {
+  /* The bobbing is charm; the state is information. Drop the charm, keep every
+     state cue, and let the horses jump straight to their new position. */
+  .bubble, .bubble.thinking .avatar, .horse.gained .avatar { animation: none; }
+  .horse { transition: none; }
+  .big, button.opt, .tf { transition: none; }
+  #timer-ring .ring-fg { transition: none; }
+}
+
+/* ---------------------------------------------------------- larger screens */
+
+@media (min-width: 620px) {
+  .bubble { --avatar: 74px; width: 92px; }
+  .lane { height: 60px; }
+  .horse { --avatar: 44px; width: 44px; margin-top: -22px;
+           transform: translateX(calc(var(--frac, 0) * (100cqw - 56px))); }
+  .hname { width: 7rem; }
+  .controls { flex-direction: row; }
+  .controls .big { flex: 1; }
+}
+
+/* --------------------------------------------------------------- themes
+ *
+ * THIS IS THE LAST SECTION OF THE FILE. Nothing goes below it. A rule appended
+ * after these blocks wins over every one of them, so a themed night silently
+ * keeps default colours for whatever that rule touches — which is how the
+ * review queue arrived: a baseline block at the end of the file, styling in
+ * `var(--panel, #1d1a29)` and `var(--accent, #ffb000)`, tokens this file does
+ * not define, so both fell through to their hardcoded fallbacks. New component
+ * styles go above, with the other components.
+ *
+ * One block per night. A theme may only move the tokens above — nothing below
+ * this line knows what any given evening is for, and nothing above it does
+ * either. Names stay neutral on purpose: the occasion is the badge and the
+ * title in seed/branding.json, never a class name in a stylesheet.
+ */
+
+/* NOTE the selector shape: the theme attribute is on <body> itself, so a rule
+   that targets the BODY must be body[data-theme=...] and not [data-theme=...] body.
+   The second form matches nothing and fails silently — the tokens below apply
+   and the page keeps the default ground, which looks like a half-built theme. */
+[data-theme="dusk"] {
+  --turf-900: #120A18;
+  --turf-850: #180F20;
+  --turf-800: #1D1327;
+  --turf-700: #2C1F3C;
+  --turf-600: #3E2D53;
+  --rail: #F6F0F7;
+  --rail-dim: #BCACC4;
+  --rail-mute: #9A8AA3;
+  --rail-faint: #6E5C79;
+  --flag: #FFB3D1;
+  --flag-deep: #C16C92;
+  --danger: #FF6B5E;
+  --ink: #1A0E22;
+}
+
+body[data-theme="dusk"] {
+  background-image: radial-gradient(120% 55% at 50% -8%, #2A1838 0%, transparent 62%);
+}
+[data-theme="dusk"] .bar,
+[data-theme="dusk"] .controls { background: rgba(18, 10, 24, 0.94); }
+[data-theme="dusk"] .lane { border-bottom-color: #241634; }
+[data-theme="dusk"] .track {
+  border-image: repeating-linear-gradient(
+    180deg, var(--rail) 0 5px, var(--turf-900) 5px 10px) 5;
+}
+[data-theme="dusk"] .lane.leader {
+  background: linear-gradient(90deg, transparent, rgba(255, 179, 209, 0.12));
+}
+[data-theme="dusk"] .horse.gained .avatar { animation: surge-dusk 900ms ease-out 1; }
+
+@keyframes surge-dusk {
+  0%   { box-shadow: 0 0 0 0 rgba(255, 179, 209, 0.85); }
+  100% { box-shadow: 0 0 0 14px rgba(255, 179, 209, 0); }
+}
+
+[data-theme="noon"] {
+  color-scheme: light;
+  --turf-900: #F4F2EC;
+  --turf-850: #FFFFFF;
+  --turf-800: #EDEAE1;
+  --turf-700: #DED9CC;
+  --turf-600: #C4BCA8;
+  --rail: #16211C;
+  --rail-dim: #4A5A51;
+  --rail-mute: #5E6D65;
+  --rail-faint: #8A9990;
+  --flag: #0B6B4F;
+  --flag-deep: #064534;
+  --danger: #B3241A;
+  --ink: #FFFFFF;
+}
+
+body[data-theme="noon"] {
+  background-image: radial-gradient(120% 55% at 50% -8%, #FFFFFF 0%, transparent 62%);
+}
+[data-theme="noon"] .bar,
+[data-theme="noon"] .controls { background: rgba(244, 242, 236, 0.94); }
+[data-theme="noon"] .race { background: linear-gradient(180deg, #FFFFFF, #EDEAE1); }
+[data-theme="noon"] .lane { border-bottom-color: #DED9CC; }
+[data-theme="noon"] .lane.leader {
+  background: linear-gradient(90deg, transparent, rgba(11, 107, 79, 0.14));
+}
+[data-theme="noon"] .track {
+  border-image: repeating-linear-gradient(
+    180deg, #16211C 0 5px, #FFFFFF 5px 10px) 5;
+}
+[data-theme="noon"] button.opt,
+[data-theme="noon"] .tf {
+  background: #FFFFFF;
+  border-color: #C4BCA8;
+  box-shadow: 0 var(--lift) 0 #C4BCA8;
+}
+[data-theme="noon"] .big.ghost { box-shadow: 0 var(--lift) 0 #C4BCA8; }
+[data-theme="noon"] .horse.gained .avatar { animation: surge-noon 900ms ease-out 1; }
+
+@keyframes surge-noon {
+  0%   { box-shadow: 0 0 0 0 rgba(11, 107, 79, 0.75); }
+  100% { box-shadow: 0 0 0 14px rgba(11, 107, 79, 0); }
+}
+
+/* ---- reveal countdown (player) ----------------------------------------
+   "Next question in 4s" with a bar draining beside it, so a five-second hold
+   never reads as a frozen phone. */
+.reveal-countdown { margin: 10px 0 14px; }
+.reveal-countdown-track {
+  height: 6px; border-radius: 999px; overflow: hidden;
+  background: var(--rail-faint, #342f48);
+}
+.reveal-countdown-bar {
+  height: 100%; width: 100%; transform-origin: left center;
+  background: var(--accent, #ffb000);
+  transition: transform .2s linear;
+}
+.reveal-countdown-text {
+  margin: 6px 0 0; font-size: .85rem;
+  color: var(--rail-mute, #a49cc4); font-variant-numeric: tabular-nums;
+}
+
+/* ---- reset: the one control here that cannot be taken back ------------
+   Two taps, its own zone, and a shape that is not the shape of the buttons
+   she uses all night. */
+.reset-confirm {
+  margin: 10px 0; padding: 14px;
+  border-radius: 14px;
+  background: var(--panel, #1d1a29);
+  border: 2px solid var(--danger, #e0435a);
+}
+.reset-confirm p { margin: 0 0 8px; }
+
+/* Reset lives apart from the running controls and from the photo footer:
+   it is the only thing on this screen that cannot be taken back. */
+.reset-zone { margin-top: var(--gap, 16px); }
+
+
+
+
+/* ---- the bubble field ---------------------------------------------------
+   A physics loop in app.js owns each bubble's transform: drag, throw, wall
+   bounces, and bubble-to-bubble collisions. So NOTHING here may animate or
+   transition `transform` on .bubble — it would fight the simulation every
+   frame. Style the look; leave the motion alone. */
+.bubble-field {
+  position: relative;
+  width: 100%;
+  min-height: min(52vh, 420px);
+  overflow: hidden;
+  touch-action: none;          /* dragging a bubble must not scroll the page */
+}
+.bubble-field .bubble {
+  position: absolute;
+  top: 0; left: 0;
+  margin: 0;
+  /* The physics loop writes an inline transform every frame. A CSS animation
+     on `transform` BEATS an inline style, so the drift animation was painting
+     straight over the simulation — the bubbles appeared to move but could not
+     be dragged and slid outside the field. Nothing in here may animate
+     transform. */
+  animation: none !important;
+  cursor: grab;
+  will-change: transform;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.bubble-field .bubble.held {
+  cursor: grabbing;
+  z-index: 5;
+}
+.bubble-field .bubble.held .avatar {
+  box-shadow: 0 0 0 3px var(--flag, #ffb000), 0 10px 22px rgba(0, 0, 0, .5);
+}
+.bubble-field .bubble .avatar { transition: box-shadow .18s ease, filter .18s ease; }
+
+/* Lobby / final: nobody is "still thinking", so nothing is dimmed. */
+.bubble.neutral { opacity: 1; }
+.bubble.neutral .avatar { filter: none; box-shadow: 0 0 0 2px var(--rail-faint, #4b4468); }
+
+@media (prefers-reduced-motion: reduce) {
+  /* The loop stops integrating; bubbles stay where they were placed and are
+     still draggable. */
+  .bubble-field .bubble { will-change: auto; }
+}
+
+/* ---- organizer: feedback and a fold ------------------------------------
+   Every control now says what it did, and everything that is not the current
+   step folds away — the buttons used to fill the screen with no way to scroll
+   past them. */
+.panel-note {
+  margin: 8px 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--turf-800, #16261f);
+  color: var(--rail, #f4f1ff);
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+.more-toggle {
+  width: 100%;
+  min-height: 44px;
+  margin-bottom: 8px;
+  background: none;
+  border: 1px solid var(--rail-faint, #342f48);
+  border-radius: 12px;
+  color: var(--rail-mute, #a49cc4);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.more-toggle[aria-expanded="true"] { color: var(--rail, #f4f1ff); }
+.big.busy, .more-toggle.busy { opacity: 0.65; cursor: progress; }
+
+/* ---- player: edit your name or photo from the lobby ---- */
+.edit-me {
+  display: inline-flex; align-items: center; gap: 8px;
+  min-height: 44px; padding: 0 14px; margin: 4px 0 12px;
+  background: none; border: 1px solid var(--rail-faint, #342f48);
+  border-radius: 999px; color: var(--rail-mute, #a49cc4);
+  font: inherit; font-size: 0.9rem; cursor: pointer;
+}
+.edit-sheet {
+  margin: 10px 0 18px;
+  padding: 18px 16px 20px;
+  border-radius: 16px;
+  background: var(--panel, #1d1a29);
+  border: 1px solid var(--rail-faint, #342f48);
+  /* It read as squished: label sat on the input, the input sat on Save. */
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.edit-sheet > p:first-child { margin: 0 0 6px; font-size: 1.05rem; }
+.edit-sheet label { margin: 10px 0 2px; }
+.edit-sheet input[type="text"],
+.edit-sheet input:not([type]) { margin-bottom: 4px; }
+.edit-sheet .selfie-row { margin: 4px 0 6px; }
+.edit-sheet .big { margin-top: 14px; }
+.edit-sheet .link-back { margin-top: 2px; }
+
+/* ---- build stamp --------------------------------------------------------
+   Bottom-left of every screen, deliberately tiny and quiet. It exists so a
+   phone showing something odd can be identified as running an old build
+   instead of guessed at — the question "is this cached?" cost real time. */
+.version {
+  position: fixed;
+  /* Inset from both edges — flush against the left it read as something that
+     had fallen off the layout rather than a deliberate label. */
+  left: calc(16px + env(safe-area-inset-left, 0px));
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  margin: 0;
+  z-index: 1;
+  font-size: 10px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  color: var(--rail-mute, #8a93a0);
+  opacity: 0.75;
+  pointer-events: none;   /* never in the way of a control */
+  user-select: none;
+}
+
+/* ---- the control tray collapses --------------------------------------- */
+.tray-toggle {
+  /* A 64px sliver of chevron was too small to find and too small to hit.
+     Full width, labelled, and a proper tap target. */
+  width: 100%;
+  min-height: 44px;
+  margin: -2px 0 4px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  background: none;
+  border: 0;
+  border-radius: 8px;
+  color: var(--rail-mute, #a49cc4);
+  cursor: pointer;
+}
+.tray-toggle svg { transition: transform .18s ease; }
+.tray-toggle.collapsed svg { transform: rotate(180deg); }
+.tray-toggle:focus-visible { outline: 2px solid currentColor; }
+#control-buttons { display: flex; flex-direction: column; gap: 0.5rem; }
+@media (prefers-reduced-motion: reduce) { .tray-toggle svg { transition: none; } }
+
+/* ---- organizer: who is playing, and removing someone ---- */
+.player-list { display: flex; flex-direction: column; gap: 6px; }
+.player-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: var(--turf-800, #16261f);
+}
+.player-row .avatar.small { width: 36px; height: 36px; font-size: 0.95rem; }
+.player-name { flex: 1; font-weight: 600; font-size: 0.95rem; }
+.player-remove {
+  min-height: 40px; padding: 0 12px;
+  background: none;
+  border: 1px solid var(--danger, #e0435a);
+  border-radius: 10px;
+  color: var(--danger, #e0435a);
+  font: inherit; font-size: 0.85rem; font-weight: 700;
+  cursor: pointer;
+}
+
+/* ---- the organizer's guide at /guide ----
+   Long-form reading on a phone: a comfortable measure, real spacing, and
+   tables that scroll rather than squeezing. */
+.guide-body {
+  padding: max(20px, env(safe-area-inset-top)) 18px
+           calc(48px + env(safe-area-inset-bottom));
+}
+.guide { max-width: 44rem; margin: 0 auto; line-height: 1.6; }
+.guide h1 { font-size: 1.9rem; margin: 0 0 0.6em; }
+.guide h2 {
+  font-size: 1.25rem; margin: 1.9em 0 0.5em;
+  padding-top: 0.9em; border-top: 1px solid var(--rail-faint, #342f48);
+}
+.guide h3 { font-size: 1.05rem; margin: 1.4em 0 0.4em; }
+.guide p, .guide li { font-size: 1rem; }
+.guide ul, .guide ol { padding-left: 1.3em; }
+.guide li { margin: 0.4em 0; }
+.guide strong { color: var(--rail, #f4f1ff); }
+.guide code {
+  padding: 1px 5px; border-radius: 5px;
+  background: var(--turf-800, #16261f); font-size: 0.92em;
+}
+.guide table {
+  width: 100%; border-collapse: collapse; margin: 1em 0;
+  display: block; overflow-x: auto;   /* a wide table scrolls, never squeezes */
+}
+.guide th, .guide td {
+  padding: 9px 10px; text-align: left; vertical-align: top;
+  border-bottom: 1px solid var(--rail-faint, #342f48);
+  font-size: 0.95rem;
+}
+.guide th { color: var(--rail-mute, #a49cc4); font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.guide hr { border: 0; border-top: 1px solid var(--rail-faint, #342f48); margin: 2em 0; }
+.guide-link { margin: 6px 0 14px; }
+.guide-link a { color: var(--rail-mute, #a49cc4); font-size: 0.9rem; }
+
+/* ---- multiple choice with long options ----
+   Four short answers belong in a 2x2 grid. Four sentences do not: squeezed
+   into a quarter of a phone they are unreadable, so they stack full width. */
+.grid2.stacked {
+  grid-template-columns: 1fr;
+}
+.grid2.stacked .opt {
+  min-height: 0;
+  padding: 14px 16px;
+  text-align: left;
+  font-size: 0.98rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+/* ---- per-question result on each standings row (reveal only) ----
+   The running total does not say whether she got THIS one. Encoded in shape
+   and text as well as colour: a tick with the points, a cross, or a dash for
+   never answered — which is not the same as wrong. */
+.hmark {
+  flex: 0 0 auto;
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.hmark.right  { background: rgba(35, 193, 107, 0.18); color: #6fe0a6; }
+.hmark.wrong  { background: rgba(224, 67, 90, 0.18);  color: #ff8fa1; }
+.hmark.absent { background: rgba(255, 255, 255, 0.07); color: var(--rail-mute, #a49cc4); }
+
+/* ---- how long until the room moves on ----
+   Shown while she waits, where her own spent countdown means nothing. */
+.waiting-time {
+  margin: 2px 0 10px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--rail-mute, #a49cc4);
+}
